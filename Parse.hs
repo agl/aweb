@@ -22,6 +22,7 @@ data AWebSection = AWebCode { awcText :: [B8.ByteString]
                             , awcCodeName :: B8.ByteString
                             , awcMsg :: B8.ByteString
                             , awcCode :: CodeBlock
+                            , awcLevel :: Int
                             }
                  | AWebOutput { awoFileName :: B8.ByteString
                               , awoLineNo :: Int
@@ -77,7 +78,7 @@ parseSection ((header, lineno) : rest)
   | "@{file " `B8.isPrefixOf` header =
       parseFileSection lineno (chomp $ B8.drop 7 header) rest
   | "@/" `B8.isPrefixOf` header =
-      parseOutputSection lineno $ ((B8.drop 3 header, lineno) : rest)
+      parseOutputSection lineno $ ((header, lineno) : rest)
   | otherwise = error $ printf "Didn't expect: %s" (show header)
 
 isWhitespace :: Char -> Bool
@@ -117,11 +118,13 @@ stripExtraBlankLines (first:rest) = first : rest' where
 
 parseOutputSection :: Int -> [Line] -> AWebSection
 parseOutputSection lineno lines =
-  AWebCode text lineno name msg code where
+  AWebCode text lineno name msg code level where
   (textLines, codeLines) = span (not . isStartOfCode) lines
+  headerLine = fst $ head textLines
+  level = B8.length $ B8.takeWhile (== '*') $ B8.drop 2 headerLine
   codeLines' = stripExtraBlankLines codeLines
   isStartOfCode (line, _) = "@<" `B8.isPrefixOf` line
-  text = fromLines textLines
+  text = (B8.drop 1 $ B8.dropWhile (/= ' ') $ headerLine) : (fromLines $ tail textLines)
   (name, msg) =
     if null codeLines'
        then error $ printf "line %d: No code block in section" lineno
@@ -129,7 +132,7 @@ parseOutputSection lineno lines =
 
   parseCodeName (line, lineno) =
     if not ("@>=" `B8.isSuffixOf` line)
-       then error $ printf "line %d: Expected @>= at end of line"
+       then error $ printf "line %d: Expected @>= at end of line" lineno
        else let inner = B8.drop 2 $ B8.take (B8.length line - 3) line
              in case B8.elemIndex '|' inner of
                      Nothing -> (inner, inner)

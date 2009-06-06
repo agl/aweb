@@ -15,18 +15,53 @@ import           Debug.Trace (trace)
 
 debug x = trace (show x) x
 
+data TOCNode = TOCNode B8.ByteString Int [TOCNode]
+               deriving (Show)
+
+buildTOC :: [(Int, AWebSection)] -> [TOCNode]
+buildTOC sections = fst $ buildTree 0 sections where
+  buildTree minLevel = f (minLevel, [])
+  f (_, results) [] = (results, [])
+  f state@(minLevel, results) all@((sectionNo, (AWebCode { awcLevel = level, awcText = text })) : xs)
+    | level > minLevel =
+        let (nodes, rest) = buildTree level xs
+        in f (minLevel, TOCNode (head text) sectionNo nodes : results) rest
+    | level /= 0 && level <= minLevel =
+        (results, all)
+    | otherwise = f state xs
+  f state (x : xs) = f state xs
+
+printTOC :: [TOCNode] -> B8.ByteString
+printTOC [] = B8.empty
+printTOC nodes = "<ol class=\"toc\">" `B8.append` elems `B8.append` "</ol>" where
+  elems = B8.concat $ map f $ reverse nodes
+  f (TOCNode text sectionNo subNodes) =
+    "<li><a href=\"#section-" `B8.append` B8.pack (show sectionNo) `B8.append` "\">" `B8.append` text `B8.append` "</a>" `B8.append` printTOC subNodes `B8.append` "</li>"
+
 weave :: AWebFile -> [[B8.ByteString]]
-weave file = (awfPrelude file : (map (weaveSection refMap) $ zip [1..] $ awfSections file)) ++ trailer where
+weave file = (prelude : (map (weaveSection refMap) numberedSections)) where
   trailer = [["  </body>", "</html>"]]
   refMap = Map.fromList [(name, (sectionNumber, x)) |
                          (sectionNumber, x@(AWebCode { awcCodeName = name })) <-
                          zip [1..] $ awfSections file]
+  numberedSections = zip [1..] $ awfSections file
+  prelude = map replaceTOC $ awfPrelude file
+  replaceTOC "@@TOC" = printTOC $ buildTOC numberedSections
+  replaceTOC x = x
+
+maybeDecorateText :: AWebSection -> [B8.ByteString]
+maybeDecorateText (AWebCode { awcText = text, awcLevel = level }) = r where
+  r = if level == 0
+         then text
+         else ("<b>" `B8.append` firstLine `B8.append` "</b>") : rest
+  firstLine = head text
+  rest = tail text
 
 weaveSection refMap (sectionNum, a@(AWebCode { })) =
   [ "    <a name=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "    <div class=\"section\" id=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "      <div class=\"sectionnumber\">" `B8.append` itoa sectionNum `B8.append` "</div>"
-  ] ++ awcText a ++
+  ] ++ maybeDecorateText a ++
   [ "      <div class=\"codename\">" `B8.append` awcMsg a `B8.append` "</div>"
   , "      <div class=\"code\">"
   ] ++
