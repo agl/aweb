@@ -39,7 +39,7 @@ printTOC nodes = "<ol class=\"toc\">" `B8.append` elems `B8.append` "</ol>" wher
     "<li><a href=\"#section-" `B8.append` B8.pack (show sectionNo) `B8.append` "\">" `B8.append` text `B8.append` "</a>" `B8.append` printTOC subNodes `B8.append` "</li>"
 
 weave :: AWebFile -> [[B8.ByteString]]
-weave file = (prelude : (map (weaveSection refMap) numberedSections)) where
+weave file = (prelude : (map (weaveSection refMap) numberedSections)) ++ trailer where
   trailer = [["  </body>", "</html>"]]
   refMap = Map.fromList [(name, (sectionNumber, x)) |
                          (sectionNumber, x@(AWebCode { awcCodeName = name })) <-
