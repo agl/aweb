@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Semantics (
+module Tangle (
     TangleFile
   , TangleOutput(..)
   , TangleCode(..)

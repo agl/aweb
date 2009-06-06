@@ -8,7 +8,7 @@ import           System.IO (openFile, hClose, IOMode(..))
 import           Text.Printf (printf)
 
 import           Parse
-import           Semantics
+import           Tangle
 import           Weave
 
 main = do
