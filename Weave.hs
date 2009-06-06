@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.Map as Map
 import           Data.Maybe (fromJust, isJust)
 import           Parse
+import           Text.Printf (printf)
 
 import           Debug.Trace (trace)
 
@@ -39,7 +40,7 @@ printTOC nodes = "<ol class=\"toc\">" `B8.append` elems `B8.append` "</ol>" wher
     "<li><a href=\"#section-" `B8.append` B8.pack (show sectionNo) `B8.append` "\">" `B8.append` text `B8.append` "</a>" `B8.append` printTOC subNodes `B8.append` "</li>"
 
 weave :: AWebFile -> [[B8.ByteString]]
-weave file = (prelude : (map (weaveSection refMap) numberedSections)) ++ trailer where
+weave file = (prelude : (map (weaveSection file refMap) numberedSections)) ++ trailer where
   trailer = [["  </body>", "</html>"]]
   refMap = Map.fromList [(name, (sectionNumber, x)) |
                          (sectionNumber, x@(AWebCode { awcCodeName = name })) <-
@@ -49,19 +50,45 @@ weave file = (prelude : (map (weaveSection refMap) numberedSections)) ++ trailer
   replaceTOC "@@TOC" = printTOC $ buildTOC numberedSections
   replaceTOC x = x
 
-maybeDecorateText :: AWebSection -> [B8.ByteString]
-maybeDecorateText (AWebCode { awcText = text, awcLevel = level }) = r where
+resolveCitation :: AWebFile -> Int -> B8.ByteString -> B8.ByteString
+resolveCitation file lineno cite = r where
+  r = if null results
+         then error $ printf "Cannot resolve citation to %s in section at line %d" (B8.unpack cite) lineno
+         else B8.pack $ printf "#section-%d" $ fst $ head results
+  numberedSections = zip ([1..] :: [Int]) $ awfSections file
+  results = [x | x@(_, AWebCode { awcCodeName = codeName }) <- numberedSections, codeName == cite]
+
+expandLinks :: AWebFile -> Int -> [B8.ByteString] -> [B8.ByteString]
+expandLinks file lineno lines = map f lines where
+  f line = r where
+    (a, b) = B8.breakSubstring "@@" line
+    r = if B8.null b
+           then line
+           else let
+                  (ref, rest) = B8.breakSubstring "@@" $ B8.drop 2 b
+                  (cmd, arg') = B8.span (/= ':') ref
+                  arg = B8.drop 1 arg'
+                in
+                  if B8.null rest
+                     then error $ printf "Unterminated @@ in section at line %d" lineno
+                     else case cmd of
+                               "cite" ->
+                                 let reference = resolveCitation file lineno arg in a `B8.append` reference `B8.append` B8.drop 2 rest
+                               _ -> error $ printf "Unknown @@ command %s in section at line %d" (B8.unpack cmd) lineno
+
+maybeDecorateText :: AWebFile -> AWebSection -> [B8.ByteString]
+maybeDecorateText file (AWebCode { awcText = text, awcLevel = level, awcLineNo = lineno }) = r where
   r = if level == 0
-         then text
-         else ("<b>" `B8.append` firstLine `B8.append` "</b>") : rest
+         then expandLinks file lineno text
+         else ("<b>" `B8.append` firstLine `B8.append` "</b>") : expandLinks file lineno rest
   firstLine = head text
   rest = tail text
 
-weaveSection refMap (sectionNum, a@(AWebCode { })) =
+weaveSection file refMap (sectionNum, a@(AWebCode { })) =
   [ "    <a name=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "    <div class=\"section\" id=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "      <div class=\"sectionnumber\">" `B8.append` itoa sectionNum `B8.append` "</div>"
-  ] ++ maybeDecorateText a ++
+  ] ++ maybeDecorateText file a ++
   [ "      <div class=\"codename\">" `B8.append` awcMsg a `B8.append` "</div>"
   , "      <div class=\"code\">"
   ] ++
@@ -70,7 +97,7 @@ weaveSection refMap (sectionNum, a@(AWebCode { })) =
   , "    </div>"
   ]
 
-weaveSection refMap (sectionNum, a@(AWebOutput { })) =
+weaveSection file refMap (sectionNum, a@(AWebOutput { })) =
   [ "    <div class=\"section\" id=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "      <div class=\"sectionnumber\">" `B8.append` itoa sectionNum `B8.append` "</div>"
   , "      <div class=\"outputfile\">" `B8.append` awoFileName a `B8.append` "</div>"
