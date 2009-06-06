@@ -10,7 +10,6 @@ h1 {
   font-weight: normal;
   color: #fff;
   background-color: #555;
-  margin-bottom: 1.5em;
   margin-left: -5px;
   padding-bottom: 5px;
   padding-left: 0.66em;
@@ -46,6 +45,7 @@ h1 {
   margin-left: 2em;
   border-left: solid 2px gray;
   padding-left: 1em;
+  margin-bottom: 1em;
 }
 
 .codeline {
@@ -113,4 +113,24 @@ tr > th {
 td {
   vertical-align: top;
   padding-right: 1em;
+}
+
+.sectionrefs:before {
+  content: "Used in ";
+}
+
+.sectionrefs {
+  margin-left: 2em;
+  font-size: 0.75em;
+  color: gray;
+}
+
+.sectionrefs .fileref {
+  font-family: monospace;
+  font-size: 1.2em;
+  color: gray;
+}
+
+.sectionrefs .sectionref {
+  color: gray;
 }
