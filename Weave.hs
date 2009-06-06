@@ -84,6 +84,19 @@ maybeDecorateText file (AWebCode { awcText = text, awcLevel = level, awcLineNo =
   firstLine = head text
   rest = tail text
 
+backRefs :: AWebFile -> AWebSection -> [B8.ByteString]
+backRefs file (AWebCode { awcCodeName = codeName }) = map prSection matchingSections ++ map prFile matchingFiles where
+  prSection sectionNo =
+    "<a class=\"sectionref\" href=\"#section-" `B8.append` x `B8.append` "\">" `B8.append` x `B8.append` "</a> " where
+    x = itoa sectionNo
+  prFile (sectionNo, fileName) =
+    "<a class=\"fileref\" href=\"#section-" `B8.append` x `B8.append` "\">" `B8.append` fileName `B8.append` "</a> " where
+    x = itoa sectionNo
+  numberedSections = zip [1..] $ awfSections file
+  matchingSections = [sectionNo | (sectionNo, AWebCode { awcCode = code }) <- numberedSections, code `references` codeName]
+  matchingFiles = [(sectionNo, fileName) | (sectionNo, AWebOutput { awoFileName = fileName, awoCode = code }) <- numberedSections, code `references` codeName]
+  references code codeName = any id [True | CodeBlockRef {cbrName = ref } <- code, ref == codeName]
+
 weaveSection file refMap (sectionNum, a@(AWebCode { })) =
   [ "    <a name=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
   , "    <div class=\"section\" id=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
@@ -94,7 +107,11 @@ weaveSection file refMap (sectionNum, a@(AWebCode { })) =
   ] ++
   concatMap (weaveCode refMap) (reindent $ tabExpand $ awcCode a) ++
   [ "      </div>"
-  , "    </div>"
+  , "      <div class=\"sectionrefs\">"
+  ] ++
+  backRefs file a ++
+  [
+    "    </div>"
   ]
 
 weaveSection file refMap (sectionNum, a@(AWebOutput { })) =
