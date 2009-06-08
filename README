@@ -1,0 +1,81 @@
+AWEB - Literate programming with C and HTML.
+
+AWEB is a literate programming[1] system like Knuth's CWEB[2]. The difference
+being that AWEB generates HTML for the weave output and the tangle output is
+still readable source code, rather than the compressed form which CWEB
+generates.
+
+In order to build it, you'll need GHC[3] installed:
+
+  ghc -O --make aweb
+
+The code is a bit of a mess. And it's not even written in AWEB! :)
+
+LSMSB[4] is written in AWEB, you can use that an an example. The file extension
+for AWEB files is '.aw'.
+
+[1] http://www.literateprogramming.com/
+[2] http://www-cs-faculty.stanford.edu/~knuth/cweb.html
+[3] http://www.haskell.org/ghc/
+[4] http://www.github.com/agl/lsmsb/
+
+Quick syntax guide:
+
+The start of the file is the prelude, which is copied verbatim into the output.
+It should include the HTML boilerplate for the output and should end up since
+the <body> tag.
+
+All directive lines start with @. Mostly, they are required to be at the start
+of the line.
+
+@/ Starts a section. The headline of the section follows on the same line, after
+a space:
+
+  @/ Heading
+
+In a section, there is some amount of HTML, followed by a code snippet. The code
+snippet starts with @<:
+
+  @<snippet name@>=
+
+The code snippet can also have a presentation name. The presentation name is
+used in the weave output, but all references to the snippet must use the true
+name (which must be unique):
+
+  @<snippet name|Presentation name@>=
+
+The code snippet is terminated either by the end of the file, or by a @/ line
+starting the next section.
+
+Within the code snippet, other sections can be referenced via:
+
+  @<other snippet name@>
+
+This directive need not start at the first character of the line, but all
+characters before it need to be whitespace.
+
+In order to output source files, there is a specific section:
+
+  @{file filename.c
+
+This replaces a @/ line and contains a code snippet which is expanded into the
+contents of the file.
+
+Within the HTML sections, @@cite:snippet name@@ will generate a fragment
+reference to the given snippet. Use it like:
+
+  See <a href="@@cite:snippet name@@">above</a>
+
+In the prelude,
+
+  @@TOC
+
+on a line will cause an table of contents to be included. The table of contents
+is generated from sections which are marked as headings. Replace the @/ with
+something like:
+
+  @/* Top level heading
+
+or
+
+  @/** Second level heading
