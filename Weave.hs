@@ -79,8 +79,8 @@ expandLinks file lineno lines = map f lines where
 maybeDecorateText :: AWebFile -> AWebSection -> [B8.ByteString]
 maybeDecorateText file (AWebCode { awcText = text, awcLevel = level, awcLineNo = lineno }) = r where
   r = if level == 0
-         then expandLinks file lineno text
-         else ("<b>" `B8.append` firstLine `B8.append` "</b>") : expandLinks file lineno rest
+         then (firstLine `B8.append` "</p>") : expandLinks file lineno rest
+         else ("<b>" `B8.append` firstLine `B8.append` "</b></p>") : expandLinks file lineno rest
   firstLine = head text
   rest = tail text
 
@@ -98,9 +98,9 @@ backRefs file (AWebCode { awcCodeName = codeName }) = map prSection matchingSect
   references code codeName = any id [True | CodeBlockRef {cbrName = ref } <- code, ref == codeName]
 
 weaveSection file refMap (sectionNum, a@(AWebCode { })) =
-  [ "    <a name=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
+  [ "    <a name=\"section-" `B8.append` itoa sectionNum `B8.append` "\"></a>"
   , "    <div class=\"section\" id=\"section-" `B8.append` itoa sectionNum `B8.append` "\">"
-  , "      <div class=\"sectionnumber\">" `B8.append` itoa sectionNum `B8.append` "</div>"
+  , "      <p><span class=\"sectionnumber\">" `B8.append` itoa sectionNum `B8.append` "</span>"
   ] ++ maybeDecorateText file a ++
   [ "      <div class=\"codename\">" `B8.append` awcMsg a `B8.append` "</div>"
   , "      <div class=\"code\">"
