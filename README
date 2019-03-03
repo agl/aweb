@@ -11,7 +11,7 @@ In order to build it, you'll need GHC[3] installed:
 
 The code is a bit of a mess. And it's not even written in AWEB! :)
 
-LSMSB[4] is written in AWEB, you can use that an an example. The file extension
+LSMSB[4] is written in AWEB, you can use that as an example. The file extension
 for AWEB files is '.aw'.
 
 [1] http://www.literateprogramming.com/
